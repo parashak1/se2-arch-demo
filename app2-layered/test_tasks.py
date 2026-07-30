@@ -27,3 +27,9 @@ def test_stats_observer_counts_correctly():
     assert observer.total == 1
     assert observer.high_count == 1
     assert observer.pending == 1
+
+def test_task_can_be_marked_done():
+    task = TaskFactory.create("Finish lab", "medium")
+    assert task.done is False
+    task.mark_done()
+    assert task.done is True
