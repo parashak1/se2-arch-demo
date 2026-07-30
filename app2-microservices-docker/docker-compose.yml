@@ -1,0 +1,66 @@
+# =============================================================
+#  docker-compose.yml : TaskFlow Microservices
+#
+#  Starts both services with one command:
+#    docker compose up --build
+#
+#  What this file does:
+#    - Builds each service from its Dockerfile
+#    - Creates a private network so services find each other by name
+#    - Passes VALIDATOR_URL as an environment variable to task-intake
+#    - Uses health checks so task-intake only starts once
+#      task-validator is genuinely ready — not just started
+#    - Maps ports so you can reach both from your browser
+# =============================================================
+
+services:
+
+  # ── Validator service ──────────────────────────────────────
+  task-validator:
+    build:
+      context: ./task-validator
+      dockerfile: Dockerfile
+    ports:
+      - "5002:5002"
+    networks:
+      - taskflow-net
+    healthcheck:
+      # Docker calls this endpoint every 5 seconds.
+      # task-intake will not start until this returns 200.
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5002/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ── Intake service ─────────────────────────────────────────
+  task-intake:
+    build:
+      context: ./task-intake
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    networks:
+      - taskflow-net
+    environment:
+      # This is the key line.
+      # "task-validator" is the service name above; Docker's
+      # internal DNS resolves it to the right container IP.
+      # The intake service never needs to know the actual IP.
+      - VALIDATOR_URL=http://task-validator:5002/validate
+      - VALIDATOR_TIMEOUT=3
+    depends_on:
+      task-validator:
+        condition: service_healthy
+    restart: unless-stopped
+
+# ── Private network ────────────────────────────────────────────
+# Both services join this network.
+# Containers on this network find each other by service name.
+# Nothing outside this network can reach them directly
+# except through the port mappings above.
+networks:
+  taskflow-net:
+    driver: bridge

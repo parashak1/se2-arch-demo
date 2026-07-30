@@ -19,6 +19,17 @@ import os
 
 app = Flask(__name__)
 
+
+@app.route("/", methods=["GET"])
+def index():
+    """Simple landing page for the validator service."""
+    return jsonify({
+        "service": "task-validator",
+        "message": "Use /health for health checks or /validate for validation",
+        "endpoints": ["/health", "/validate"],
+    }), 200
+
+
 # ── Validation rules ──────────────────────────────────────────
 # All business rules about what makes a task valid live here.
 # If rules change, only this service changes.
@@ -39,6 +50,9 @@ def health():
 
 @app.route("/validate", methods=["POST"])
 def validate():
+    import time    
+    data = request.get_json()
+    
     """
     Validates a task before it is created.
 
@@ -48,7 +62,7 @@ def validate():
     Returns JSON:
         { "valid": true/false, "reason": "..." or null }
     """
-    data = request.get_json()
+
 
     if not data:
         return jsonify({"valid": False, "reason": "No data provided"}), 400
